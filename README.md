@@ -4,7 +4,7 @@
 
 ## 🎥 Demo screen recording
 
-> **▶ [Watch the screen recording](VIDEO_LINK_HERE)**
+> **▶ [Watch the screen recording](https://drive.google.com/file/d/1O_05BOK9MBuwVC_wwPNQig6-0UD5GFj0/view?usp=sharing)**
 >
 > It shows the models playing (in progress), the completed games, and the statistical benchmark slide. My name and roll number are on screen the whole time.
 
