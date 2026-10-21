@@ -10,7 +10,7 @@
 
 ---
 
-## What this is
+## What this is 
 
 This app benchmarks fast "System-1" decision models against a frontier LLM on the same Rubik's Cube task.
 - Every model starts from **the same cube, exactly 3 moves from solved**.
