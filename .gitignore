@@ -1,0 +1,21 @@
+# secrets — never commit
+.env
+.env.*
+!.env.example
+
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# simulator runs are not evidence; temp files from atomic writes
+results/sim/
+results/*.tmp
+
+# local tooling
+.claude/
+
+# NOTE: results/*.json (runs, response cache, budget ledger) and results/api_log.jsonl
+# ARE committed on purpose — they are the experiment evidence. They contain no API key.

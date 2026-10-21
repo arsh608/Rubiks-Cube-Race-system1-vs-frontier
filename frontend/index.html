@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Rubik's Cube Race</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><rect width='30' height='30' rx='5' fill='%23111'/><rect x='2' y='2' width='8' height='8' fill='%23d62828'/><rect x='11' y='2' width='8' height='8' fill='%23f5f5f5'/><rect x='20' y='2' width='8' height='8' fill='%232a9d4b'/><rect x='2' y='11' width='8' height='8' fill='%23ffd60a'/><rect x='11' y='11' width='8' height='8' fill='%231d5fd6'/><rect x='20' y='11' width='8' height='8' fill='%23ff7b00'/><rect x='2' y='20' width='8' height='8' fill='%232a9d4b'/><rect x='11' y='20' width='8' height='8' fill='%23d62828'/><rect x='20' y='20' width='8' height='8' fill='%23f5f5f5'/></svg>" />
+  <link rel="stylesheet" href="styles.css?v=3" />
+</head>
+<body>
+  <!-- Student identity: fixed and always visible (required for the demo recording). -->
+  <div id="student-badge" class="student-badge" title="Click to edit">
+    <span class="sb-label">Student</span>
+    <span id="sb-name" class="sb-name">Set your name</span>
+    <span class="sb-sep">•</span>
+    <span class="sb-label">Roll No</span>
+    <span id="sb-roll" class="sb-roll">—</span>
+  </div>
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"></div>
+      <div>
+        <h1>Rubik's Cube Race</h1>
+        <p class="subtitle">Fast decision models vs. a frontier LLM — latency vs. reasoning quality, via OpenRouter</p>
+      </div>
+    </div>
+    <div class="top-right">
+      <span id="mode-pill" class="pill">…</span>
+      <span id="key-pill" class="pill">…</span>
+      <span id="budget-pill" class="pill">…</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- Controls -->
+    <section class="card controls">
+      <div class="field">
+        <label for="profile">Models</label>
+        <select id="profile"></select>
+      </div>
+      <div class="field">
+        <label for="suite">Test set</label>
+        <select id="suite"></select>
+      </div>
+      <div class="field small">
+        <label for="puzzles">Puzzles</label>
+        <input id="puzzles" type="number" min="1" max="50" value="1" />
+      </div>
+      <div class="field small">
+        <label for="seed">Seed</label>
+        <input id="seed" type="number" placeholder="random" />
+      </div>
+      <div class="field small">
+        <label for="max-moves">Move limit</label>
+        <input id="max-moves" type="number" min="1" max="20" value="20" />
+      </div>
+      <div class="field">
+        <label for="scramble">Custom scramble <span class="muted">(optional)</span></label>
+        <input id="scramble" type="text" placeholder="e.g. R U F2 L'" spellcheck="false" />
+      </div>
+      <div class="field check">
+        <label><input id="parallel" type="checkbox" checked /> Race in parallel</label>
+      </div>
+      <div class="field check">
+        <label title="Cached answers are normally instant. Tick to replay them at their original live latency (still labelled CACHE)."><input id="replay" type="checkbox" /> Replay cache at original speed</label>
+      </div>
+      <div class="actions">
+        <button id="run-btn" class="btn primary">▶ Run benchmark</button>
+        <button id="stop-btn" class="btn danger" disabled>■ Stop</button>
+        <button id="slide-btn" class="btn">📊 Results slide</button>
+        <button id="smoke-btn" class="btn ghost" title="One call per local model on a 1-move scramble (disabled for OpenRouter to protect the budget)">🔌 Test connection</button>
+      </div>
+      <div id="suite-hint" class="hint"></div>
+      <div id="model-picks" class="model-picks"></div>
+    </section>
+
+    <div id="alert" class="alert hidden"></div>
+    <div id="smoke" class="card hidden"></div>
+
+    <!-- Current puzzle -->
+    <section class="card puzzle-card">
+      <div class="puzzle-left">
+        <div id="hero-cube" class="cube3d-wrap big" title="Drag to rotate"></div>
+      </div>
+      <div class="puzzle-right">
+        <div class="row-between">
+          <h2>Shared starting state</h2>
+          <span id="run-status" class="status-chip idle">Idle</span>
+        </div>
+        <div class="kv">
+          <div><span>Puzzle</span><b id="pz-index">—</b></div>
+          <div><span>Scramble</span><b id="pz-scramble" class="mono">—</b></div>
+          <div><span>Exact shortest solution</span><b id="pz-optimal">—</b></div>
+          <div><span>Optimal path (BFS)</span><b id="pz-solution" class="mono">—</b></div>
+          <div><span>Run</span><b id="pz-run" class="mono">—</b></div>
+        </div>
+        <div class="progress"><div id="progress-bar"></div></div>
+        <div id="progress-text" class="muted small-text">No run yet.</div>
+        <div id="hero-net" class="net-wrap"></div>
+      </div>
+    </section>
+
+    <!-- Race lanes -->
+    <section>
+      <div class="section-head">
+        <h2>Race lanes</h2>
+        <span class="muted small-text">Every model starts from the same scrambled cube, same rules, same move limit.</span>
+      </div>
+      <div id="lanes" class="lanes"></div>
+    </section>
+
+    <!-- Dashboard -->
+    <section class="card">
+      <div class="row-between wrap">
+        <h2>Statistical benchmark dashboard</h2>
+        <div class="dash-controls">
+          <select id="dash-scope">
+            <option value="current">Current / selected run</option>
+            <option value="all">All saved runs</option>
+          </select>
+          <select id="dash-suite">
+            <option value="">All test sets</option>
+          </select>
+          <label class="inline"><input id="dash-mock" type="checkbox" /> include simulator runs</label>
+          <a id="csv-link" class="btn ghost" href="/api/export.csv" download>⬇ CSV</a>
+        </div>
+      </div>
+      <div id="dash-meta" class="muted small-text"></div>
+      <div class="table-wrap">
+        <table id="stats-table" class="stats">
+          <thead>
+            <tr>
+              <th>Model</th><th>Interface</th><th>Avg latency / move</th><th>Median</th>
+              <th>Avg total time</th><th>Total moves</th><th>Success rate</th>
+              <th>Avg optimal gap</th><th>Invalid / retries</th><th>API calls / cache</th><th>Cost</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="charts">
+        <div class="chart"><h3>Avg latency per move (ms) <span class="muted">— lower is faster</span></h3><div id="ch-latency"></div></div>
+        <div class="chart"><h3>Success rate (%)</h3><div id="ch-success"></div></div>
+        <div class="chart"><h3>Avg optimal gap (moves) <span class="muted">— 0 = optimal</span></h3><div id="ch-gap"></div></div>
+        <div class="chart"><h3>Avg total time per puzzle (s)</h3><div id="ch-time"></div></div>
+      </div>
+      <h3 class="mt">Per-puzzle results</h3>
+      <div class="table-wrap"><table id="matrix" class="matrix"></table></div>
+      <h3 class="mt">Findings</h3>
+      <ol id="answers" class="answers"></ol>
+    </section>
+
+    <!-- History -->
+    <section class="card">
+      <div class="row-between"><h2>Run history</h2><button id="refresh-runs" class="btn ghost">↻ Refresh</button></div>
+      <div class="table-wrap"><table id="runs-table" class="runs"></table></div>
+    </section>
+
+    <section class="card">
+      <details>
+        <summary>Game-action contract (exact payloads each interface receives)</summary>
+        <pre id="contract" class="code"></pre>
+      </details>
+    </section>
+  </main>
+
+  <!-- Student edit dialog -->
+  <dialog id="student-dialog">
+    <form method="dialog" class="dialog-form">
+      <h3>Student details</h3>
+      <label>Name <input id="in-name" type="text" autocomplete="off" /></label>
+      <label>Roll number <input id="in-roll" type="text" autocomplete="off" /></label>
+      <div class="actions">
+        <button value="cancel" class="btn ghost">Cancel</button>
+        <button id="save-student" value="save" class="btn primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Results slide (end of the screen recording) -->
+  <div id="slide" class="slide hidden" role="dialog" aria-label="Results slide">
+    <div class="slide-inner">
+      <div class="slide-head">
+        <div>
+          <div class="slide-kicker">AI Engineering · Assignment 02</div>
+          <h1>Rubik's Cube Race — Benchmark Results</h1>
+          <div id="slide-meta" class="slide-meta"></div>
+        </div>
+        <div class="slide-student">
+          <div id="slide-name"></div>
+          <div id="slide-roll"></div>
+        </div>
+      </div>
+      <div class="table-wrap"><table id="slide-table" class="stats slide-table"></table></div>
+      <div class="slide-charts">
+        <div><h3>Avg latency / move (ms)</h3><div id="sl-latency"></div></div>
+        <div><h3>Success rate (%)</h3><div id="sl-success"></div></div>
+        <div><h3>Avg optimal gap</h3><div id="sl-gap"></div></div>
+        <div><h3>Avg total time (s)</h3><div id="sl-time"></div></div>
+      </div>
+      <ol id="slide-answers" class="answers slide-answers"></ol>
+      <div class="slide-foot">
+        <span class="muted">Press Esc to close</span>
+        <button id="slide-close" class="btn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="cube3d.js?v=3"></script>
+  <script src="app.js?v=3"></script>
+</body>
+</html>

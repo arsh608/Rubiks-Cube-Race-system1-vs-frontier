@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "keys": {
+    "no-key": {
+      "created_at": "2026-10-21T16:31:23.653+00:00",
+      "total_requests": 0,
+      "per_model": {},
+      "cost_usd": 0.0,
+      "blocked": 0,
+      "last_request_at": null
+    },
+    "be9c4dcdd7135205": {
+      "created_at": "2026-10-21T17:50:33.247+00:00",
+      "total_requests": 63,
+      "per_model": {
+        "typesafe/jev-1.13": 20,
+        "openai/gpt-6-luna-decisions": 20,
+        "cloudflare/clef": 20,
+        "anthropic/claude-opus-5.5": 3
+      },
+      "cost_usd": 0.05240398,
+      "blocked": 0,
+      "last_request_at": "2026-10-21T18:03:44.471+00:00"
+    }
+  }
+}
